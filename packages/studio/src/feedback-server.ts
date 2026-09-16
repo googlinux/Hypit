@@ -3,6 +3,7 @@ import { relative } from "node:path";
 import type { Plugin } from "vite";
 import { createFeedbackStore, FeedbackConflict } from "./feedback-store.js";
 import { readFeedbackMutation } from "./feedback.js";
+import { protectStudioRequests } from "./request-protection.js";
 import type { FeedbackDocument, FeedbackView } from "./feedback.js";
 
 /** Review storage is separate from compilation, Results and Agent delivery. */
@@ -15,6 +16,7 @@ export function studioFeedbackPlugin(workspaceRoot: string, runPath: string): Pl
   return {
     name: "hypit-studio-feedback",
     configureServer(server) {
+      protectStudioRequests(server);
       const watcher = watch(workspaceRoot, (_event, filename) => {
         if (filename === null || filename.toString() === "FEEDBACK.json") {
           server.ws.send({ type: "custom", event: "studio:feedback-changed", data: {} });

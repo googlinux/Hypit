@@ -74,7 +74,7 @@ function assertCanonicalValue(value: unknown, subject: string): asserts value is
 /** One portable address inside a Build Result; repositories map it to their own physical storage. */
 export function assertBuildResultPath(value: unknown, subject: string): asserts value is string {
   if (typeof value !== "string" || value.length === 0 || value.startsWith("/")
-    || value.includes("\\") || value.includes("\0")
+    || value.includes("\\") || value.includes("\0") || value.includes(":")
     || value.split("/").some((part) => part.length === 0 || part === "." || part === "..")) {
     throw new Error(`${subject} is not a Result-relative path`);
   }

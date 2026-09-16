@@ -23,6 +23,7 @@ import type { StudioStoryboard } from "./storyboard.js";
 import { findSurfacePreview } from "./surface-preview.js";
 import { formatTemporalPointEdit, semanticGestureSpan } from "./temporal-edit.js";
 import { replaceSourceFiles } from "./source-transaction.js";
+import { protectStudioRequests } from "./request-protection.js";
 
 export type StudioPluginOptions = {
   readonly source: string;
@@ -467,6 +468,7 @@ export function studioPlugin(options: StudioPluginOptions): Plugin {
   return {
     name: "hypit-studio",
     configureServer(value) {
+      protectStudioRequests(value);
       server = value;
       watchSource(options.runPath);
       watchSource(currentSource);

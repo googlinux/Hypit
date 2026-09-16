@@ -2,11 +2,13 @@
 
 审查日期：2026-09-15。仓库：`hypit-ai/hypit`。版本来自当前检出的 `package.json`：`0.1.8`。提交：`4894e625fe008415ed9702321699f5dcc069b769`。
 
+**2026-09-16 更新：下列五项问题已在本仓库修复。** 修复期间已安装依赖并运行定向回归、真实 Vite HTTP 与隔离 macOS Keychain 测试，以及完整测试套件。修复内容、兼容性变化和验证限制见 [安全修复记录](research/2026-09-16/security-fixes.md)。下文的初始审查范围和问题表保留为历史基线；本分支的修复不代表上游或 npm 分发版本已包含相同修改。
+
 ## 结论
 
 适合在个人、可信项目中试用的视频制作工具。当前不应把它作为隔离陌生用户代码的服务，也不宜直接把 Studio 暴露到公网。首次体验建议使用仓库中的纯本地聊天动画，不接入真实客户素材或付费账户。
 
-本次完成克隆、应用研究及第一轮重点静态审核。没有安装项目依赖、运行应用、启动后台服务、登录第三方账户或提交付费生成。本次审核未修改应用源码。本仓库提交的是移除审查机器绝对路径后的公开文档副本。安全问题、证据和覆盖限制见 [Codex Security 生成报告](research/2026-09-15/security-report.md)；这不是全量逐行审计或安全认证。
+2026-09-15 完成克隆、应用研究及第一轮重点静态审核。当时没有安装项目依赖、运行应用、启动后台服务、登录第三方账户或提交付费生成，也未修改应用源码。初始报告为移除审查机器绝对路径后的公开文档副本。原始问题、证据和覆盖限制见 [Codex Security 生成报告](research/2026-09-15/security-report.md)；这不是全量逐行审计或安全认证。
 
 | 定级 | 问题 | 必要前提 |
 | --- | --- | --- |
@@ -66,7 +68,7 @@ Hypit 给 Codex、Claude Code 等编程 Agent 提供视频制作语言、组件�
 | macOS 机器共享工具 | `~/Library/Application Support/Hypit/`；可被 `HYPIT_STATE_HOME` 覆盖 |
 | 默认账户凭据 | macOS Keychain / Windows 系统凭据库；也可选择环境变量存储 |
 
-macOS 凭据写入实现存在将秘密放入子进程参数的问题，详见安全报告。系统凭据库存储本身不消除这一传递过程的泄露窗口。
+初始版本在 macOS 写入凭据时会把秘密放入子进程参数。本分支现已改用原生 Keychain API，保留原 service/account 格式；访问历史凭据时，系统可能要求授权新的调用程序。
 
 已看到的有效措施包括：源码/素材的 `realpath` 边界校验、OAuth 的随机 state 和 S256 PKCE、部分上传 URL/校验和检查、WhisperX 的本地监听、路径和 WAV 格式限制。它们不能替代 Studio 请求鉴权或扩展代码隔离。
 
@@ -94,7 +96,7 @@ git clone git@github.com:googlinux/Hypit.git
 cd Hypit
 ```
 
-以下命令是使用说明，本次没有执行。先准备匹配的 Node.js 和 FFmpeg/ffprobe，再安装依赖：
+以下为从源码使用的步骤。修复验证已经运行依赖安装、类型检查和测试，尚未完成示例视频渲染。先准备匹配的 Node.js 和 FFmpeg/ffprobe，再安装依赖：
 
 ```bash
 # 在克隆后的 Hypit 仓库根目录执行
@@ -142,7 +144,7 @@ node ../../bin/hypit.mjs inspect <build-id> --workspace .
 node ../../bin/hypit.mjs get <build-id> --workspace . --output final.video --to output/chat.mp4
 ```
 
-导出目的地必须尚不存在。Studio 可通过以下命令打开；首次试用应仅在本机使用，考虑先修复报告中的浏览器请求保护问题：
+导出目的地必须尚不存在。Studio 可通过以下命令打开；本分支固定监听本机回环地址，并校验 Host、Origin 和写入会话令牌。直接打开命令打印的网址，重启服务后刷新旧页面：
 
 ```bash
 node ../../bin/hypit.mjs studio --run chat.svrun --workspace .
@@ -209,6 +211,6 @@ hypit programs down
 
 安全报告记录了实际审阅路径、源代码证据及未解决问题。本轮完整安全审阅了去重后的 86 个文件；仓库有 1595 个受 Git 跟踪的普通文件。架构查阅和局部证据片段不计入这 86 个。本轮主要覆盖 Studio HTTP 接口、凭据/OAuth、文件访问、包加载、Provider 上传、本地服务及部分结果存储。第三方依赖实现、绝大多数组件/示例、全部运行时状态机和真实生产环境没有被完整验证。
 
-后续优先顺序：修复 Studio Host/Origin/会话令牌校验；补全导出的跨平台路径限制和 S3 外部文件授权；避免 macOS 凭据进入进程参数；在隔离环境跑本地示例和浏览器回归；再按实际使用范围检查依赖、复杂媒体及云端服务。
+上述五项已修复并完成定向回归，详见 [安全修复记录](research/2026-09-16/security-fixes.md)。S3 结果中的本机文件引用现在默认拒绝，包括历史记录；需要显式提供受限文件解析器，或将素材存入对象存储。后续优先在 Windows 真机和真实浏览器补充验证，跑通本地示例，再按实际使用范围检查依赖、复杂媒体及云端服务。
 
 用于判断浏览器前提的外部资料：[Vite 插件中间件顺序](https://vite.dev/guide/api-plugin.html)、[Chrome 142 本地网络权限](https://developer.chrome.com/release-notes/142)。浏览器权限可能阻断某些攻击路径，不能替代应用自己的请求验证。

@@ -1,7 +1,7 @@
-import { fileReferenceIdentity } from "@hypit/build-result";
+import { assertBuildResultPath, fileReferenceIdentity } from "@hypit/build-result";
 import { randomUUID } from "node:crypto";
 import { lstat, mkdir, rename, rm, writeFile } from "node:fs/promises";
-import { basename, dirname, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 import type {
   BuildResultFileRef,
@@ -33,9 +33,10 @@ async function pathExists(path: string): Promise<boolean> {
 }
 
 function containedPath(root: string, path: string): string {
+  assertBuildResultPath(path, "Export resource path");
   const target = resolve(root, path);
   const relation = relative(root, target);
-  assert(relation.length > 0 && relation !== ".." && !relation.startsWith(`..${sep}`),
+  assert(!isAbsolute(relation) && relation.length > 0 && relation !== ".." && !relation.startsWith(`..${sep}`),
     `Result file ${path} leaves export directory ${root}`);
   return target;
 }
@@ -89,6 +90,7 @@ async function exportComposite(
     const bindings = [];
     for (const binding of resolvedOutput.value.document.resources) {
       const file = await repository.describeFile(resolvedOutput.build, binding.file);
+      if (file.kind === "build-file") assertBuildResultPath(file.path, "Export resource path");
       const identity = fileReferenceIdentity(resolvedOutput.build, file);
       let local = copied.get(identity);
       if (local === undefined) {

@@ -1,3 +1,4 @@
+import { studioJsonHeaders } from "./request.js";
 import { t, uiDate, uiLabel, uiAttribute, uiText, uiAttr, type Message } from "./i18n.js";
 import type {
   StudioArtifactView,
@@ -176,7 +177,7 @@ function artifactCard(artifact: StudioArtifactView, open: (artifact: StudioArtif
     select: () => { if (!link.classList.contains("selected")) open(artifact); },
     async save(displayName) {
       const response = await fetch("/__studio/artifact-name", {
-        method: "PUT", headers: { "Content-Type": "application/json" },
+        method: "PUT", headers: studioJsonHeaders(),
         body: JSON.stringify({ build: artifact.build, output: artifact.output, displayName }),
       });
       const result = await response.json() as { displayName?: string; error?: string };

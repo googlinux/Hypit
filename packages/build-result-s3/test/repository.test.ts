@@ -1,5 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
+import { exportBuildResultOutput } from "../../cli/src/result-export.js";
 
 import { S3BuildResultRepository } from "@hypit/build-result-s3";
 import type { BuildResultS3Client } from "@hypit/build-result-s3";
@@ -83,6 +88,50 @@ class MemoryS3 implements BuildResultS3Client {
     this.objects.delete(key);
   }
 }
+
+test("remote S3 file references cannot read consumer-local files without an explicit capability", async t => {
+  const root = await mkdtemp(join(tmpdir(), "hypit-s3-external-security-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const selected = join(root, "consumer-only.txt");
+  await writeFile(selected, "synthetic private bytes");
+  const file = { kind: "external-file" as const, uri: pathToFileURL(selected).href, size: 23, mediaType: "text/plain" };
+  const client = new MemoryS3();
+  const repository = new S3BuildResultRepository({ bucket: "test", client });
+  const id = "bld_20260902T100000000Z_0000000001";
+  await repository.writeJson(id, "result.json", { format: "hypit.build-result@1", source: { path: "main.svml" },
+    targets: ["file", "layout"], outputs: {
+      file: { type: videoType, value: file },
+      layout: { type: takeType, value: { kind: "value", path: "values/layout.json" } },
+    } });
+  await repository.writeJson(id, "values/layout.json", { format: "hypit.result-value@1", value: { clip: null },
+    resources: [{ at: ["clip"], file }] });
+  const denied = /explicitly authorized resolver/u;
+  await assert.rejects(repository.resolve(id, "file"), denied);
+  await assert.rejects(repository.describeOutput(id, "file"), denied);
+  await assert.rejects(repository.describeFile(id, file), denied);
+  await assert.rejects(repository.openFile(id, file), denied);
+  await assert.rejects(repository.openFile(id, { ...file, uri: "file:///does-not-exist" }), denied);
+  await assert.rejects(exportBuildResultOutput(repository, id, "layout", join(root, "bundle")), denied);
+  assert.deepEqual(await readdir(root), ["consumer-only.txt"]);
+  assert.equal(await readFile(selected, "utf8"), "synthetic private bytes");
+});
+
+test("S3 validates portable paths both for object access and decoded remote composites", async () => {
+  const client = new MemoryS3();
+  const repository = new S3BuildResultRepository({ bucket: "test", client });
+  const id = "bld_20260902T100000000Z_0000000001";
+  await repository.writeJson(id, "result.json", { format: "hypit.build-result@1", source: { path: "main.svml" },
+    targets: ["layout"], outputs: { layout: { type: takeType, value: { kind: "value", path: "values/layout.json" } } } });
+  for (const path of ["C:/outside.txt", "c:relative.txt", "files/video.mp4:stream", "../outside", "\\\\server\\share"]) {
+    const file = { kind: "build-file" as const, path, size: 1, mediaType: "text/plain" };
+    await assert.rejects(repository.openFile(id, file), /Result-relative path/u);
+    await assert.rejects(repository.writeJson(id, path, {}), /Result-relative path/u);
+    // A storage writer can bypass the API's path check and supply malformed metadata directly.
+    await repository.writeJson(id, "values/layout.json", { format: "hypit.result-value@1", value: { clip: null },
+      resources: [{ at: ["clip"], file }] });
+    await assert.rejects(repository.resolve(id, "layout"), /Result-relative path/u);
+  }
+});
 
 test("S3 publishes new Outputs without uploading unchanged Result documents", async () => {
   const client = new MemoryS3();

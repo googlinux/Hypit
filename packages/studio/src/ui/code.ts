@@ -1,3 +1,4 @@
+import { studioJsonHeaders } from "./request.js";
 import { t, userText, uiAttribute, uiText, uiAttr } from "./i18n.js";
 import type { Range, StudioSnapshot, StudioSourceView } from "../shared.js";
 import { icon, setIcon } from "./icons.js";
@@ -149,7 +150,7 @@ export function createCodePane(): CodePane {
     try {
       const response = await fetch("/__studio/source", {
         method: "PUT",
-        headers: { "content-type": "application/json" },
+        headers: studioJsonHeaders(),
         body: JSON.stringify({ path: savingPath, text: savingText, revision: savingRevision }),
       });
       if (!response.ok) {

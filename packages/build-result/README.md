@@ -39,7 +39,9 @@ Result publication.
 
 Repositories own address access. `describeFile` obtains metadata and `openFile` streams bytes or a byte
 range. The filesystem and S3 implementations accept `ExternalFileAccess` for external addresses; the
-Node default opens Workspace `file:` URIs. A custom adapter can supply a different address reader.
+filesystem default opens Workspace `file:` URIs. S3 denies external access unless the host explicitly
+supplies an authorized resolver; remote metadata cannot authorize consumer-local reads. A custom
+adapter can supply a different address reader.
 Selecting S3 for Result storage does not implicitly upload external file dependencies.
 
 `fileReferenceIdentity` identifies the explicit URI or owning Build and path. Studio uses this identity

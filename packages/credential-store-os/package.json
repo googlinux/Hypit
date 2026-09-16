@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@hypit/runtime": "workspace:*",
-    "@hypit/runtime-kit": "workspace:*"
+    "@hypit/runtime-kit": "workspace:*",
+    "koffi": "3.2.1"
   }
 }

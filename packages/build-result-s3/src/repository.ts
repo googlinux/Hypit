@@ -16,6 +16,7 @@ import type {
 } from "@hypit/build-result";
 import {
   applyBuildResultPresentation,
+  assertBuildResultPath,
   assertBuildResultSeed,
   decodeBuildResultJson,
   decodeBuildResultManifest,
@@ -25,7 +26,6 @@ import {
   normalizeBuildResultForwards,
   syncBuildResultOutputs,
   currentFileReference,
-  localExternalFiles,
 } from "@hypit/build-result";
 import { assertOrderedBuildId, buildIdCreatedAt } from "@hypit/protocol";
 
@@ -35,7 +35,13 @@ import type { AwsBuildResultS3ClientOptions, BuildResultS3Client } from "./clien
 export type S3BuildResultRepositoryOptions = AwsBuildResultS3ClientOptions & {
   readonly prefix?: string;
   readonly client?: BuildResultS3Client;
+  /** Explicit host-owned capability. Remote Results never authorize local file access themselves. */
   readonly externalFiles?: ExternalFileAccess;
+};
+
+const deniedExternalFiles: ExternalFileAccess = {
+  async size() { throw new Error("S3 Result external files require an explicitly authorized resolver"); },
+  async open() { throw new Error("S3 Result external files require an explicitly authorized resolver"); },
 };
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -63,8 +69,7 @@ function publicBuild(physical: string): string | undefined {
 }
 
 function safePath(path: string): string {
-  assert(path.length > 0 && !path.startsWith("/") && !path.includes("\\"), "Build Result path must be relative");
-  assert(!path.split("/").some((part) => part.length === 0 || part === "." || part === ".."), `Build Result path ${path} is invalid`);
+  assertBuildResultPath(path, "S3 Build Result path");
   return path;
 }
 
@@ -146,7 +151,7 @@ export class S3BuildResultRepository implements BuildResultRepository {
   constructor(options: S3BuildResultRepositoryOptions) {
     assert(options.bucket.trim().length > 0, "S3 Build Result bucket must not be empty");
     this.#prefix = normalizePrefix(options.prefix);
-    this.#externalFiles = options.externalFiles ?? localExternalFiles;
+    this.#externalFiles = options.externalFiles ?? deniedExternalFiles;
     this.#client = options.client ?? new AwsBuildResultS3Client(options);
   }
 

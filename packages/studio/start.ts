@@ -88,6 +88,7 @@ export async function runStudio(argv: readonly string[], io: Pick<CliIo, "write"
   const { loadStudioRun } = await import("./src/run.js");
   const { studioPlugin } = await import("./src/server.js");
   const { studioFeedbackPlugin } = await import("./src/feedback-server.js");
+  const { studioRequestProtectionPlugin } = await import("./src/request-protection.js");
   const { inspectStudioRun } = await import("./src/studio-preflight.js");
   const languages = await studioLanguages(values.get("locale-pack") ?? [], invokedFrom, packageRoot);
   const runtimeArgument = values.get("runtime")?.at(-1);
@@ -148,13 +149,14 @@ export async function runStudio(argv: readonly string[], io: Pick<CliIo, "write"
     root: here,
     server: {
       port,
+      host: "127.0.0.1",
       // Vite resolves package assets through pnpm's real paths. The package root
       // must therefore be readable for self-hosted fonts and other declared
       // Studio dependencies, while the author workspace remains separately
       // available for Source and material previews.
       fs: { allow: [workspaceRoot, packageRoot, distributionPackageRoot, here] },
     },
-    plugins: [distributionImports, studioLocalizationPlugin(languages), studioFeedbackPlugin(workspaceRoot, runPath), studioPlugin({
+    plugins: [studioRequestProtectionPlugin(), distributionImports, studioLocalizationPlugin(languages), studioFeedbackPlugin(workspaceRoot, runPath), studioPlugin({
       source,
       runPath,
       workspaceRoot,

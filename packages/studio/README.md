@@ -72,6 +72,13 @@ transient processing require the selected Runtime.
 
 ## Opening and editing a session
 
+Studio listens on IPv4 loopback (`127.0.0.1`). Open the printed URL directly; custom hostnames,
+reverse proxies and cross-origin API clients are not supported. Every custom route validates the
+loopback Host and actual listening port before handling the request. Writes also require the exact
+Origin, JSON content type and a per-server token supplied by the Studio document. Reload open tabs
+after restarting Studio so they receive the new session token. Media GET/HEAD and range reads remain
+available to the same-origin preview without adding tokens to media URLs.
+
 The CLI prints the actual session URL and its direct `#comments` URL after the server chooses a port.
 Open the latter to review the current composition before export. Browser playback creates no export
 Build or encoded video; an export remains a separate Run execution when the user wants the file.

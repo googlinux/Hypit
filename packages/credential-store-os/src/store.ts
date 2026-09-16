@@ -1,4 +1,4 @@
-import { execFile, spawn } from "node:child_process";
+import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import { verifyCredentialRef } from "@hypit/runtime";
@@ -18,46 +18,6 @@ export type OsCredentialWriter = (service: string, account: string, secret: stri
 export type OsCredentialDeleter = (service: string, account: string) => Promise<boolean>;
 
 const DEFAULT_SERVICE = "hypit";
-
-function macosReader(service: string): OsCredentialReader {
-  return async (_service, account) => await new Promise((resolve, reject) => {
-    execFile("/usr/bin/security", ["find-generic-password", "-s", service, "-a", account, "-w"], {
-      timeout: 10_000, shell: false, windowsHide: true,
-    }, (error, stdout) => {
-      if (error === null) resolve(stdout.replace(/\n$/u, ""));
-      else if ((error as { code?: number }).code === 44) resolve(undefined);
-      else reject(new Error(`OS credential lookup for ${account} failed`));
-    });
-  });
-}
-
-function macosWriter(service: string): OsCredentialWriter {
-  return async (_service, account, secret) => await new Promise((resolve, reject) => {
-    // macOS security(1) requires the password as the argument to -w; it does
-    // not read an omitted -w value from stdin. execFile keeps shell expansion
-    // out of the path and the callback never includes the secret in errors.
-    execFile("/usr/bin/security", [
-      "add-generic-password", "-U", "-s", service, "-a", account, "-w", secret,
-    ], {
-      timeout: 10_000, shell: false, windowsHide: true,
-    }, (error) => {
-      if (error === null) resolve();
-      else reject(new Error(`OS credential write for ${account} failed`));
-    });
-  });
-}
-
-function macosDeleter(service: string): OsCredentialDeleter {
-  return async (_service, account) => await new Promise((resolve, reject) => {
-    execFile("/usr/bin/security", ["delete-generic-password", "-s", service, "-a", account], {
-      timeout: 10_000, shell: false, windowsHide: true,
-    }, (error) => {
-      if (error === null) resolve(true);
-      else if ((error as { code?: number }).code === 44) resolve(false);
-      else reject(new Error(`OS credential delete for ${account} failed`));
-    });
-  });
-}
 
 type WindowsCredentialResult = {
   readonly found?: boolean;
@@ -138,7 +98,12 @@ function windowsBackend(): {
 
 function platformBackend(service: string) {
   if (process.platform === "darwin") {
-    return { read: macosReader(service), write: macosWriter(service), remove: macosDeleter(service) };
+    const backend = async () => (await import("./macos-keychain.js")).macosKeychainBackend();
+    return {
+      read: async (_service: string, account: string) => await (await backend()).read(service, account),
+      write: async (_service: string, account: string, secret: string) => await (await backend()).write(service, account, secret),
+      remove: async (_service: string, account: string) => await (await backend()).remove(service, account),
+    };
   }
   if (process.platform === "win32") return windowsBackend();
   throw new Error("OS CredentialStore supports macOS and Windows only");

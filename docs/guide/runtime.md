@@ -151,6 +151,11 @@ access and credentials; changing Result storage does not move the active Runtime
 file references automatically. A submitted Build retains its chosen destination, and changing that
 selection does not migrate history.
 
+The S3 adapter denies access to external file references by default, including references in older
+Results. Materialize resources into object storage before sharing, or use a trusted host integration
+with an explicitly authorized `ExternalFileAccess` resolver. Selecting a bucket never authorizes
+reading files from the consumer's machine.
+
 Results publish completed public Outputs as they become available and retain the terminal outcome.
 A new Output can reference an existing file, including within a composite; it does not necessarily
 create new media bytes. Explicit local file references remain live. Keep dependencies available for

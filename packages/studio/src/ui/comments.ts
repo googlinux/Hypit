@@ -1,3 +1,4 @@
+import { studioJsonHeaders } from "./request.js";
 import { t, uiLabel, uiAttribute, uiText, uiAttr, type Message } from "./i18n.js";
 import { feedbackClock } from "../feedback.js";
 import type { FeedbackComment, FeedbackMutation, FeedbackView } from "../feedback.js";
@@ -172,7 +173,7 @@ export function createComments(store: Store, stage: Stage) {
     if (busy) return;
     busy = true; showError(); renderAnchor();
     try {
-      const response = await fetch("/__studio/feedback", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(mutation) });
+      const response = await fetch("/__studio/feedback", { method: "POST", headers: studioJsonHeaders(), body: JSON.stringify(mutation) });
       const data = await response.json() as FeedbackView & { error?: string };
       if (!response.ok) throw new Error(data.error ?? t("comments.save-failed"));
       ++fetchId; view = data; busy = false; saved?.();

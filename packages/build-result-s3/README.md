@@ -36,6 +36,19 @@ domain data separate from the paths of nested Resources.
 Nested reuse retains each Resource's original Build and path. Workspace files remain explicit external
 references rather than being uploaded merely because this repository uses S3. The shared
 [Result value and reference model](../build-result/README.md) describes ownership and external access.
+
+External references are denied by default: neither a remote Result nor its object writer can grant
+access to files on the consuming machine. Accessing such a reference, including refreshing its size
+while browsing, fails with an explicit authorization error. This applies to existing Results too.
+The JSON-configured S3 adapter does not opt into local file access. To consume intentionally shared
+Results, materialize their resources into object storage or use a trusted host integration that
+explicitly supplies `externalFiles: ExternalFileAccess` to `S3BuildResultRepository`. That resolver
+must enforce its own allowed roots and provenance; importing unrestricted `localExternalFiles`
+restores full consumer-local file authority and is inappropriate for lower-trust remote writers.
+
+Result-relative paths use portable slash-separated segments. Drive-qualified paths, backslashes,
+parent segments and colons (including Windows alternate data streams) are rejected on every OS.
+
 Synchronization uploads new public Outputs and then their updated manifest. Internal graph progress
 and repeated synchronization of already published Outputs produce no object writes.
 

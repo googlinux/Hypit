@@ -1,4 +1,5 @@
 export {
+  assertBuildResultPath,
   assertBuildResultValueDocument,
   assertBuildResultSeed,
 } from "./types.js";
