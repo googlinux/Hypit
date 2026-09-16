@@ -1,5 +1,8 @@
 # Video examples
 
+New to Studio? Start with the [local nine-second example and guided tour](../QUICKSTART.zh-CN.md):
+run `node bin/hypit.mjs studio` from the repository root. No API Key or remote model is needed.
+
 These projects demonstrate different directing and composition decisions. Read the one closest to
 the question, then trace its intent, component boundaries, semantic events and rendered behavior.
 Adapt those relationships to a new work; its scene list and styling are choices for that production.

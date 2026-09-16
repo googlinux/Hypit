@@ -1,4 +1,5 @@
 import { createSettings } from "./settings.js";
+import { createEditorTour } from "./guide.js";
 import { bindDropdown } from "./dropdown.js";
 import { uiLabel, uiAttribute, uiText, uiAttr, userText, languageMenu, type Message } from "./i18n.js";
 import type { Clip, StudioFailure, StudioInspectorDomain, StudioSnapshot } from "../shared.js";
@@ -44,6 +45,7 @@ app.innerHTML = `
       <div class="meta" data-meta></div>
       <div class="status" data-status></div>
       <div data-language-menu></div>
+      <a class="studio-guide-link" href="#settings/guide">${icon("guide")}${uiLabel("guide.help")}</a>
       <div class="view-tabs" role="tablist" ${uiAttribute("aria-label", "app.studio-view")}>
         <button type="button" role="tab" data-view="studio" aria-selected="true">${icon("studio")}${uiLabel("app.studio")}</button>
         <button type="button" role="tab" data-view="comments" aria-selected="false">${icon("comments")}${uiLabel("app.comments")}</button>
@@ -51,7 +53,12 @@ app.innerHTML = `
       </div>
     </div>
   </header>
-  <main class="studio-shell">
+  <main class="studio-shell" data-mobile-panel="preview">
+    <nav class="mobile-editor-nav" ${uiAttribute("aria-label", "app.studio-view")}>
+      <button type="button" data-mobile-panel="preview" aria-pressed="true">${uiLabel("guide.panel-preview")}</button>
+      <button type="button" data-mobile-panel="source" aria-pressed="false">${uiLabel("guide.panel-source")}</button>
+      <button type="button" data-mobile-panel="properties" aria-pressed="false">${uiLabel("inspector.properties")}</button>
+    </nav>
     <section class="upper-shell">
       <aside class="source-panel" data-library></aside>
       <div class="preview-panel" data-stage></div>
@@ -74,6 +81,10 @@ app.querySelector("[data-language-menu]")!.replaceWith(languageMenu());
 
 const settings = createSettings(true);
 app.append(settings.element);
+const editorTour = createEditorTour();
+document.addEventListener("studio:start-tour", () => {
+  window.requestAnimationFrame(() => { if (window.location.hash === "#studio") editorTour.start(); });
+});
 
 const store = createStore();
 const code = createCodePane();
@@ -88,6 +99,17 @@ app.querySelector<HTMLElement>("[data-stage]")!.append(stage.element);
 // The source, picture, workspace and timeline all need different amounts of
 // room for different jobs, so each boundary is draggable and remembered.
 const shell = app.querySelector<HTMLElement>(".studio-shell")!;
+function mobilePanel(value: string): void {
+  if (!["preview", "source", "properties"].includes(value)) return;
+  shell.dataset.mobilePanel = value;
+  shell.querySelectorAll<HTMLButtonElement>(".mobile-editor-nav button").forEach(button => {
+    button.setAttribute("aria-pressed", String(button.dataset.mobilePanel === value));
+  });
+}
+shell.querySelectorAll<HTMLButtonElement>(".mobile-editor-nav button").forEach(button => {
+  button.addEventListener("click", () => mobilePanel(button.dataset.mobilePanel!));
+});
+document.addEventListener("studio:tour-panel", event => mobilePanel((event as CustomEvent<string>).detail));
 const upperShell = app.querySelector<HTMLElement>(".upper-shell")!;
 const workspacePanel = app.querySelector<HTMLElement>(".workspace-panel")!;
 const sidebarMinimum = 320;
@@ -133,6 +155,7 @@ const changeView = (): void => {
   app.dataset.settings = String(current === "settings");
   shell.hidden = current === "settings";
   if (current === "settings") stage.pause();
+  if (current !== "studio") editorTour.stop();
   void settings.activate(current === "settings");
   shell.dataset.view = current;
   app.querySelectorAll<HTMLButtonElement>(".view-tabs [data-view]").forEach((button) => {

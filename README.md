@@ -58,6 +58,9 @@ it if needed. Your video project can live anywhere.
 
 ## Examples
 
+Try the [built-in local example and Studio tour](QUICKSTART.zh-CN.md) with
+`node bin/hypit.mjs studio` from this checkout. No API Key is needed for the preview.
+
 ### UGC
 
 [Generation source](examples/ranking-football/reference.svml) · [Run and production notes](examples/ranking-football/README.md)

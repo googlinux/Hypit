@@ -4,9 +4,10 @@ import { languageSelect, t, uiLabel, uiText, uiAttr, uiAttribute, type Message }
 import { studioJsonHeaders } from "./request.js";
 import { motionPreference, resetStudioLayout, setMotionPreference } from "./preferences.js";
 import "../settings.css";
+import { renderGuide } from "./guide.js";
 
-type Section = "general" | "api-keys" | "runtime";
-const titles: Record<Section, Message> = { general: "settings.general", "api-keys": "settings.keys", runtime: "settings.runtime" };
+type Section = "guide" | "general" | "api-keys" | "runtime";
+const titles: Record<Section, Message> = { guide: "guide.title", general: "settings.general", "api-keys": "settings.keys", runtime: "settings.runtime" };
 
 function node<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", text?: string): HTMLElementTagNameMap[K] {
   const element = document.createElement(tag); element.className = className;
@@ -44,6 +45,7 @@ export function createSettings(hasRun: boolean): { element: HTMLElement; activat
   const element = node("section", "settings-shell"); element.hidden = true;
   element.innerHTML = `<aside class="settings-sidebar"><h1>${uiLabel("settings.title")}</h1>
     <nav ${uiAttribute("aria-label", "settings.title")}>
+      <a href="#settings/guide" data-section="guide">${icon("guide")}${uiLabel("guide.nav")}</a>
       <a href="#settings/general" data-section="general">${icon("tune")}${uiLabel("settings.general")}</a>
       <a href="#settings/api-keys" data-section="api-keys">${icon("key")}${uiLabel("settings.keys")}</a>
       <a href="#settings/runtime" data-section="runtime">${icon("terminal")}${uiLabel("settings.runtime")}</a>
@@ -58,7 +60,7 @@ export function createSettings(hasRun: boolean): { element: HTMLElement; activat
     const title = node("div", "settings-page-title");
     title.append(label("h2", titles[section], "settings-heading"));
     content.replaceChildren(title,
-      label("p", section === "general" ? "settings.general-description" : section === "runtime"
+      label("p", section === "guide" ? "guide.description" : section === "general" ? "settings.general-description" : section === "runtime"
         ? "settings.runtime-description" : "settings.keys-description", "settings-description"));
   }
   function general(): void {
@@ -185,7 +187,7 @@ export function createSettings(hasRun: boolean): { element: HTMLElement; activat
     // Never leave a typed secret in a hidden editor or a previous route.
     content.querySelectorAll("input").forEach(input => { input.value = ""; });
     if (!active) { content.replaceChildren(); return; }
-    const section: Section = window.location.hash === "#settings/general" ? "general"
+    const section: Section = window.location.hash === "#settings/guide" ? "guide" : window.location.hash === "#settings/general" ? "general"
       : window.location.hash === "#settings/runtime" ? "runtime" : "api-keys";
     element.querySelectorAll<HTMLAnchorElement>("[data-section]").forEach(link => {
       if (link.dataset.section === section) link.setAttribute("aria-current", "page"); else link.removeAttribute("aria-current");
@@ -194,11 +196,12 @@ export function createSettings(hasRun: boolean): { element: HTMLElement; activat
     if (section === "general") { general(); return; }
     const loading = label("p", "settings.loading", "settings-description"); loading.setAttribute("role", "status"); content.append(loading);
     try {
-      const response = await fetch("/__studio/settings", { cache: "no-store" });
+      const response = await fetch(section === "guide" ? "/__studio/settings/context" : "/__studio/settings", { cache: "no-store" });
       if (!response.ok) throw new Error();
       const data = await response.json() as StudioSettings;
       if (generation !== current) return;
       loading.remove();
+      if (section === "guide") { renderGuide(content, data); return; }
       if (section === "runtime") runtime(data);
       else {
         if (!data.profile) notice("settings.no-runtime");

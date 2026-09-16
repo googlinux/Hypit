@@ -12,6 +12,7 @@ type Options = {
   readonly distributionPackageRoot: string;
   readonly runtimePath?: string;
   readonly hasRun: boolean;
+  readonly example?: StudioSettingsContext["example"];
   /** Host-side injection for isolated tests; never selected by an HTTP request. */
   readonly openCredentials?: (endpoint: string) => Promise<RuntimeHostCredentialControl>;
 };
@@ -61,6 +62,7 @@ function origin(config: unknown): string | undefined {
 export function studioSettingsPlugin(options: Options): Plugin {
   const context: StudioSettingsContext = {
     hasRun: options.hasRun, project: options.workspaceRoot, platform: process.platform, node: process.version,
+    ...(options.example === undefined ? {} : { example: options.example }),
     ...(options.runtimePath === undefined ? {} : { profile: options.runtimePath }),
   };
   const profile = async () => options.runtimePath === undefined ? undefined

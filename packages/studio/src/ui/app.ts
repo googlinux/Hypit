@@ -10,6 +10,7 @@ try {
   const response = await fetch("/__studio/settings/context", { cache: "no-store" });
   if (!response.ok) throw new Error();
   const context = await response.json() as StudioSettingsContext;
+  if (!window.location.hash && context.example) window.history.replaceState(null, "", "#settings/guide");
   if (context.hasRun) await import("./main.js");
   else {
     const { createSettings } = await import("./settings.js");

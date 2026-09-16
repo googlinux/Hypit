@@ -5,6 +5,7 @@ export type StudioSettingsContext = {
   readonly profile?: string;
   readonly platform: string;
   readonly node: string;
+  readonly example?: { readonly id: "first-film"; readonly directory: string };
 };
 
 export type StudioCredential = {

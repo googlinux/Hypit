@@ -10,6 +10,25 @@ cd /path/to/external-video-project
 hypit studio --run build.svrun
 ```
 
+## Built-in example and guided tour
+
+Run `hypit studio` or `hypit studio --example first-film` to start with a local nine-second
+film and the getting-started page (`#settings/guide`). **Take the tour** walks through the actual
+preview, timeline, properties and source editor. The tour is non-modal, can be skipped with Escape,
+and is always available from **Guide** in the header. The page includes language selection,
+practice instructions, copyable launch commands and credential setup guidance.
+On small screens, Preview / Source / Properties buttons switch the editor panel; the tour
+selects the relevant panel automatically while keeping the timeline available.
+
+Every example launch creates a new persistent copy in the selected project's
+`.hypit/studio-examples/first-film-*` directory. Edits never overwrite the bundled original or
+earlier practice copies. The example renders with local components and bundled fonts, with no
+Runtime or remote model calls; its composition target does not export an MP4. Reopen a copy with
+`hypit studio --run <copy>/preview.svrun`. An explicit `--run` continues to open the user's project.
+The `--settings` entry also loads a practice copy when no Run is provided.
+
+See [Chinese quickstart](../../QUICKSTART.zh-CN.md) and [example source](examples/first-film/README.zh-CN.md).
+
 ## Settings and API keys
 
 Open **Settings** in the Studio header, or start without a Run:
