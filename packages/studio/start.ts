@@ -1,5 +1,7 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import type { Plugin } from "vite";
+import type { StudioBuildLibrary } from "./src/build-library.js";
 import type { CliIo } from "@hypit/cli";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -11,6 +13,9 @@ Open a Run in the browser to inspect its composition, Sources and Results.
   hypit studio --run <build.svrun> [--runtime <hypit.runtime.json>]
     [--port <number>] [--workspace <directory>] [--package-root <directory>]
     [--locale-pack <./language.json | installed-package/language.json>]...
+
+  hypit studio --settings [--runtime <hypit.runtime.json>] [--workspace <directory>]
+    Open settings and API Key management without a Run.
 
   hypit studio --check-locale <./language.json | installed-package/language.json>
     [--package-root <directory>]
@@ -36,6 +41,7 @@ function argumentsByName(argv: readonly string[]): ReadonlyMap<string, readonly 
   const accepted = new Set(["run", "runtime", "port", "workspace", "package-root", "locale-pack", "check-locale"]);
   const result = new Map<string, string[]>();
   for (let index = 0; index < argv.length; index += 2) {
+    if (argv[index] === "--settings") { result.set("settings", ["true"]); index -= 1; continue; }
     const flag = argv[index];
     const value = argv[index + 1];
     if (flag === undefined || !flag.startsWith("--") || value === undefined || value.startsWith("--")) {
@@ -77,19 +83,14 @@ export async function runStudio(argv: readonly string[], io: Pick<CliIo, "write"
     io.write(describeLanguagePack(await loadLanguagePack(checkLocale, invokedFrom, packageRoot)) + "\n");
     return;
   }
-  if (runArgument === undefined || runArgument.trim().length === 0) invalidArguments("Missing --run");
-  const runPath = resolve(invokedFrom, runArgument);
+  const settingsOnly = values.has("settings") && runArgument === undefined;
+  if (!settingsOnly && (runArgument === undefined || runArgument.trim().length === 0)) invalidArguments("Missing --run (or use --settings)");
+  const runPath = runArgument === undefined ? undefined : resolve(invokedFrom, runArgument);
   const { createServer } = await import("vite");
   const { resolveDistributionPackageImport } = await import("@hypit/package-loader-node");
   const { videoCliDistribution, videoStudioCompanionPackages } = await import("@hypit/video-cli");
-  const { openStudioBuildLibrary } = await import("./src/build-library.js");
-  const { loadStudioCompanionRegistry } = await import("./src/companion-assembly.js");
-  const { loadStudioDomain } = await import("./src/domain.js");
-  const { loadStudioRun } = await import("./src/run.js");
-  const { studioPlugin } = await import("./src/server.js");
-  const { studioFeedbackPlugin } = await import("./src/feedback-server.js");
+  const { studioSettingsPlugin } = await import("./src/settings-server.js");
   const { studioRequestProtectionPlugin } = await import("./src/request-protection.js");
-  const { inspectStudioRun } = await import("./src/studio-preflight.js");
   const languages = await studioLanguages(values.get("locale-pack") ?? [], invokedFrom, packageRoot);
   const runtimeArgument = values.get("runtime")?.at(-1);
   const selectedRuntime = runtimeArgument === undefined
@@ -100,7 +101,7 @@ export async function runStudio(argv: readonly string[], io: Pick<CliIo, "write"
     : resolve(invokedFrom, runtimeArgument);
   console.info([
     `  Project            ${workspaceRoot}`,
-    `  Run                ${runPath}`,
+    `  Run                ${runPath ?? "settings only"}`,
     `  Runtime Profile    ${runtimePath ?? "not selected"}`,
     `  Runtime selection  ${runtimeArgument !== undefined
       ? "command argument (this session only)" : selectedRuntime?.selectionFile ?? "none"}`,
@@ -108,34 +109,31 @@ export async function runStudio(argv: readonly string[], io: Pick<CliIo, "write"
     "",
   ].join("\n"));
   const port = Number(values.get("port")?.at(-1) ?? "5179");
-  if (!Number.isSafeInteger(port) || port <= 0) invalidArguments("--port must be a positive integer");
+  if (!Number.isSafeInteger(port) || port <= 0 || port > 65535) invalidArguments("--port must be a positive integer");
 
   const distributionPackageRoot = videoCliDistribution.packageRoot ?? resolve(here, "../..");
-  const domain = await loadStudioDomain({ run: runPath, workspaceRoot, packageRoot });
-  const registry = await loadStudioCompanionRegistry({
-    distributionPackageRoot,
-    distributionPackages: videoStudioCompanionPackages,
-    sourcePackages: domain.packages,
-  });
-  const buildLibrary = await openStudioBuildLibrary(runtimePath, packageRoot, workspaceRoot, distributionPackageRoot);
-  let run;
-  try {
-    run = await loadStudioRun({
-      run: runPath,
-      domain,
-      registry,
-      buildLibrary,
+  let buildLibrary: StudioBuildLibrary | undefined;
+  const runPlugins: Plugin[] = [];
+  if (runPath !== undefined) {
+    const { openStudioBuildLibrary } = await import("./src/build-library.js");
+    const { loadStudioCompanionRegistry } = await import("./src/companion-assembly.js");
+    const { loadStudioDomain } = await import("./src/domain.js");
+    const { loadStudioRun } = await import("./src/run.js");
+    const { studioPlugin } = await import("./src/server.js");
+    const { studioFeedbackPlugin } = await import("./src/feedback-server.js");
+    const { inspectStudioRun } = await import("./src/studio-preflight.js");
+    const domain = await loadStudioDomain({ run: runPath, workspaceRoot, packageRoot });
+    const registry = await loadStudioCompanionRegistry({
+      distributionPackageRoot, distributionPackages: videoStudioCompanionPackages, sourcePackages: domain.packages,
     });
-  } catch (error) {
-    await buildLibrary.close();
-    throw error;
-  }
-  const source = run.authorSource;
-  try {
-    inspectStudioRun(registry, run.source, run);
-  } catch (error) {
-    await buildLibrary.close();
-    throw error;
+    buildLibrary = await openStudioBuildLibrary(runtimePath, packageRoot, workspaceRoot, distributionPackageRoot);
+    try {
+      const run = await loadStudioRun({ run: runPath, domain, registry, buildLibrary });
+      inspectStudioRun(registry, run.source, run);
+      runPlugins.push(studioFeedbackPlugin(workspaceRoot, runPath), studioPlugin({
+        source: run.authorSource, runPath, workspaceRoot, domain, registry, buildLibrary,
+      }));
+    } catch (error) { await buildLibrary.close(); throw error; }
   }
   const distributionImports = {
     name: "hypit-distribution-imports",
@@ -156,21 +154,19 @@ export async function runStudio(argv: readonly string[], io: Pick<CliIo, "write"
       // available for Source and material previews.
       fs: { allow: [workspaceRoot, packageRoot, distributionPackageRoot, here] },
     },
-    plugins: [studioRequestProtectionPlugin(), distributionImports, studioLocalizationPlugin(languages), studioFeedbackPlugin(workspaceRoot, runPath), studioPlugin({
-      source,
-      runPath,
-      workspaceRoot,
-      domain,
-      registry,
-      ...(buildLibrary === undefined ? {} : { buildLibrary }),
-    })],
+    plugins: [studioRequestProtectionPlugin(), distributionImports, studioLocalizationPlugin(languages),
+      studioSettingsPlugin({ workspaceRoot, packageRoot, distributionPackageRoot, hasRun: runPath !== undefined,
+        ...(runtimePath === undefined ? {} : { runtimePath }) }), ...runPlugins],
   });
   server.httpServer?.once("close", () => {
-    void buildLibrary.close().catch((error: unknown) => {
+    void buildLibrary?.close().catch((error: unknown) => {
       console.error(error instanceof Error ? error.message : String(error));
     });
   });
   await server.listen();
   server.printUrls();
-  for (const url of server.resolvedUrls?.local ?? []) io.write(`  Comments           ${url}#comments\n`);
+  for (const url of server.resolvedUrls?.local ?? []) {
+    if (runPath) io.write(`  Comments           ${url}#comments\n`);
+    io.write(`  Settings           ${url}#settings/api-keys\n`);
+  }
 }

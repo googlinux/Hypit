@@ -1,6 +1,7 @@
 # 研究与安全审核
 
 - [中文研究与使用指南](../RESEARCH.zh-CN.md)
+- [Studio 设置与 API Key 管理](../SETTINGS.zh-CN.md)：页面启动方法、凭据管理、安全边界和验证范围。
 - [2026-09-15 安全报告](2026-09-15/security-report.md)
 - [2026-09-16 安全修复记录](2026-09-16/security-fixes.md)：五项问题已修复，含兼容性说明和回归验证结果。
 - [2026-09-16 外联与后门专项检查](2026-09-16/network-inventory.zh-CN.md)：连接目标、触发条件、数据去向及上游 CI 通知；附 [生成的扫描报告](2026-09-16/network-security-report.md)。

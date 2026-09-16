@@ -10,6 +10,27 @@ cd /path/to/external-video-project
 hypit studio --run build.svrun
 ```
 
+## Settings and API keys
+
+Open **Settings** in the Studio header, or start without a Run:
+
+```bash
+hypit studio --settings [--runtime /path/to/hypit.runtime.json]
+```
+
+Settings provides language and motion preferences, editor layout reset, declared Provider
+credential status and save/replace/delete actions, plus runtime paths and service origins.
+The default OS store uses macOS Keychain or Windows Credential Manager. Environment and
+structured credentials are read-only in this UI. Stored secrets are never returned to the browser;
+all mutations use Studio's existing same-origin session protection. Replacing a key also replaces
+any login credential in that slot, including for other projects sharing it.
+
+Use `#settings/general`, `#settings/api-keys`, or `#settings/runtime` to link to a page.
+Configuration status does not validate a key with the remote service. The runtime page reads local
+configuration only. See the [Chinese usage guide](../../SETTINGS.zh-CN.md).
+
+## Project and Run selection
+
 When `--runtime` is omitted, Studio reads the resolved project's `.hypit/runtime`
 selection made by `hypit runtime use`. It does not search parent projects for a
 Profile. `--workspace` explicitly selects the project boundary; `--package-root`

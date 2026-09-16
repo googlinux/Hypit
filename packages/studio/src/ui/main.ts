@@ -1,5 +1,6 @@
+import { createSettings } from "./settings.js";
 import { bindDropdown } from "./dropdown.js";
-import { uiLabel, uiAttribute, uiText, uiAttr, userText, languageMenu, initializeI18n, type Message } from "./i18n.js";
+import { uiLabel, uiAttribute, uiText, uiAttr, userText, languageMenu, type Message } from "./i18n.js";
 import type { Clip, StudioFailure, StudioInspectorDomain, StudioSnapshot } from "../shared.js";
 import type { CanonicalValue, ValueSchema } from "@hypit/protocol";
 import { parameterAuthorValue, parameterControlForSchema, parameterNumber, parameterOption, parameterRecordSchema, parameterRecordVariants, validateParameterValue } from "../parameter-values.js";
@@ -17,8 +18,6 @@ import { applyStudioMutation } from "./writeback.js";
 import { createTimeline } from "./timeline.js";
 import { createComments } from "./comments.js";
 import "../style.css";
-
-await initializeI18n();
 
 const app = document.querySelector<HTMLElement>("#app")!;
 app.innerHTML = `
@@ -48,6 +47,7 @@ app.innerHTML = `
       <div class="view-tabs" role="tablist" ${uiAttribute("aria-label", "app.studio-view")}>
         <button type="button" role="tab" data-view="studio" aria-selected="true">${icon("studio")}${uiLabel("app.studio")}</button>
         <button type="button" role="tab" data-view="comments" aria-selected="false">${icon("comments")}${uiLabel("app.comments")}</button>
+        <button type="button" role="tab" data-view="settings" aria-selected="false">${icon("tune")}${uiLabel("settings.title")}</button>
       </div>
     </div>
   </header>
@@ -71,6 +71,9 @@ app.innerHTML = `
   <pre class="failure" data-failure></pre>`;
 
 app.querySelector("[data-language-menu]")!.replaceWith(languageMenu());
+
+const settings = createSettings(true);
+app.append(settings.element);
 
 const store = createStore();
 const code = createCodePane();
@@ -126,7 +129,11 @@ const status = app.querySelector<HTMLElement>("[data-status]")!;
 const failureView = app.querySelector<HTMLElement>("[data-failure]")!;
 
 const changeView = (): void => {
-  const current = window.location.hash === "#comments" ? "comments" : "studio";
+  const current = window.location.hash.startsWith("#settings") ? "settings" : window.location.hash === "#comments" ? "comments" : "studio";
+  app.dataset.settings = String(current === "settings");
+  shell.hidden = current === "settings";
+  if (current === "settings") stage.pause();
+  void settings.activate(current === "settings");
   shell.dataset.view = current;
   app.querySelectorAll<HTMLButtonElement>(".view-tabs [data-view]").forEach((button) => {
     const selected = button.dataset.view === current;
@@ -140,7 +147,8 @@ app.querySelectorAll<HTMLButtonElement>(".view-tabs [data-view]").forEach((butto
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
     event.preventDefault();
     event.stopPropagation();
-    const next = button.dataset.view === "studio" ? "comments" : "studio";
+    const views = ["studio", "comments", "settings"];
+    const next = views[(views.indexOf(button.dataset.view!) + (event.key === "ArrowRight" ? 1 : 2)) % 3]!;
     window.location.hash = next;
     app.querySelector<HTMLButtonElement>(`.view-tabs [data-view="${next}"]`)!.focus();
   });
@@ -1060,6 +1068,7 @@ code.element.addEventListener("click", (event) => {
 });
 
 window.addEventListener("keydown", (event) => {
+  if (shell.hidden) return;
   const state = store.current();
   if (state === undefined || event.metaKey || event.ctrlKey || event.altKey) return;
   // Space is the transport everywhere else; typing in a field is not transport.

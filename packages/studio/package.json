@@ -34,6 +34,7 @@
     "@hypit/run": "workspace:*",
     "@hypit/runtime": "workspace:*",
     "@hypit/runtime-host-node": "workspace:*",
+    "@hypit/runtime-local": "workspace:*",
     "@hypit/screen-overlay-studio": "workspace:*",
     "@hypit/script-studio": "workspace:*",
     "@hypit/speech": "workspace:*",

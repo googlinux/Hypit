@@ -3046,6 +3046,9 @@ importers:
       '@hypit/runtime-host-node':
         specifier: workspace:*
         version: link:../runtime-host-node
+      '@hypit/runtime-local':
+        specifier: workspace:*
+        version: link:../runtime-local
       '@hypit/screen-overlay-studio':
         specifier: workspace:*
         version: link:../screen-overlay-studio

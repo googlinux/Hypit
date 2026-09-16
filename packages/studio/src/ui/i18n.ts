@@ -69,6 +69,24 @@ function selectLanguage(pack: LanguagePack): void {
     }
   }
   for (const node of Array.from(document.querySelectorAll("[data-ui-date]"))) uiDate(node, Number(node.getAttribute("data-ui-date")));
+  for (const select of Array.from(document.querySelectorAll<HTMLSelectElement>("[data-language-select]"))) select.value = pack.locale;
+  document.dispatchEvent(new Event("studio:language"));
+}
+
+/** A native select for the full settings page; uses the same immediate language state. */
+export function languageSelect(): HTMLSelectElement {
+  const control = document.createElement("select"); control.className = "settings-select"; control.dataset.languageSelect = "";
+  uiAttr(control, "aria-label", "app.language");
+  for (const pack of languages) {
+    const option = document.createElement("option"); option.value = pack.locale; option.textContent = pack.name;
+    control.append(option);
+  }
+  control.value = language.locale;
+  control.addEventListener("change", () => {
+    const pack = languages.find(item => item.locale === control.value);
+    if (pack) selectLanguage(pack);
+  });
+  return control;
 }
 
 export function languageMenu(): HTMLElement {
@@ -105,5 +123,6 @@ export function languageMenu(): HTMLElement {
   menu.append(...options); control.append(trigger, menu);
   const { close } = bindDropdown(control, trigger, menu, options);
   renderSelection();
+  document.addEventListener("studio:language", renderSelection);
   return control;
 }
