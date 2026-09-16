@@ -51,6 +51,8 @@ Hypit 为 AI Agent（Claude Code、Codex 等）提供了一套制作视频的语
 
 在已安装依赖的仓库根目录运行 `node bin/hypit.mjs studio`，即可体验无需 API Key 的内置短片。点击「带我体验」学习播放、时间线、属性和源码编辑。详见 [快速入门](QUICKSTART.zh-CN.md) 与 [设置说明](SETTINGS.zh-CN.md)。
 
+需要个人长期使用或自己的 HTTPS 域名访问，参阅 [个人生产模式](PRODUCTION.zh-CN.md)：独立服务、密码登录、生产构建与部署步骤。
+
 ## 只安装一次
 
 ```bash

@@ -112,7 +112,12 @@ transient processing require the selected Runtime.
 
 ## Opening and editing a session
 
-Studio listens on IPv4 loopback (`127.0.0.1`). Open the printed URL directly; custom hostnames,
+For single-owner hosting, build with `hypit studio --build`, create a password hash with
+`hypit studio --create-password <file>`, then run `hypit studio --production --password-file <file>`.
+This uses a standalone HTTP server, built assets and authenticated SSE updates. A same-host HTTPS
+proxy can expose an explicit `--origin https://studio.example.com`. See [personal deployment](../../PRODUCTION.zh-CN.md).
+
+Development mode listens on IPv4 loopback (`127.0.0.1`). Open the printed URL directly; custom hostnames,
 reverse proxies and cross-origin API clients are not supported. Every custom route validates the
 loopback Host and actual listening port before handling the request. Writes also require the exact
 Origin, JSON content type and a per-server token supplied by the Studio document. Reload open tabs

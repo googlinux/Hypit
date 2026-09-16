@@ -1,10 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { isAbsolute, resolve } from "node:path";
-import type { Plugin } from "vite";
+import { studioModule } from "./host.js";
+import type { StudioModule } from "./host.js";
 import { builtinLanguages, languageCoverage, readLanguagePack } from "./localization.js";
 import type { LanguagePack } from "./localization.js";
-import { protectStudioRequests } from "./request-protection.js";
 
 export async function loadLanguagePack(specifier: string, cwd: string, packageRoot: string): Promise<LanguagePack> {
   const path = isAbsolute(specifier) || specifier.startsWith(".")
@@ -31,11 +31,8 @@ export async function studioLanguages(specifiers: readonly string[], cwd: string
   return [...packs.values()];
 }
 
-export function studioLocalizationPlugin(packs: readonly LanguagePack[]): Plugin {
-  return {
-    name: "hypit-studio-localization",
-    configureServer(server) {
-      protectStudioRequests(server);
+export function studioLocalizationPlugin(packs: readonly LanguagePack[]): StudioModule {
+  return studioModule("hypit-studio-localization", (server) => {
       server.middlewares.use((request, response, next) => {
         if (new URL(request.url ?? "/", "http://localhost").pathname !== "/__studio/locales") return next();
         if (request.method !== "GET") { response.statusCode = 405; response.end(); return; }
@@ -43,6 +40,5 @@ export function studioLocalizationPlugin(packs: readonly LanguagePack[]): Plugin
         response.setHeader("cache-control", "no-store");
         response.end(JSON.stringify(packs));
       });
-    },
-  };
+    });
 }

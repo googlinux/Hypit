@@ -1,22 +1,19 @@
 import { watch } from "node:fs";
 import { relative } from "node:path";
-import type { Plugin } from "vite";
+import { studioModule, readStudioBody } from "./host.js";
+import type { StudioModule } from "./host.js";
 import { createFeedbackStore, FeedbackConflict } from "./feedback-store.js";
 import { readFeedbackMutation } from "./feedback.js";
-import { protectStudioRequests } from "./request-protection.js";
 import type { FeedbackDocument, FeedbackView } from "./feedback.js";
 
 /** Review storage is separate from compilation, Results and Agent delivery. */
-export function studioFeedbackPlugin(workspaceRoot: string, runPath: string): Plugin {
+export function studioFeedbackPlugin(workspaceRoot: string, runPath: string): StudioModule {
   const store = createFeedbackStore(workspaceRoot);
   const run = relative(workspaceRoot, runPath).replaceAll("\\", "/");
   const view = (document: FeedbackDocument): FeedbackView => ({
     file: "FEEDBACK.json", run, comments: document.comments.filter((comment) => comment.run === run),
   });
-  return {
-    name: "hypit-studio-feedback",
-    configureServer(server) {
-      protectStudioRequests(server);
+  return studioModule("hypit-studio-feedback", (server) => {
       const watcher = watch(workspaceRoot, (_event, filename) => {
         if (filename === null || filename.toString() === "FEEDBACK.json") {
           server.ws.send({ type: "custom", event: "studio:feedback-changed", data: {} });
@@ -34,9 +31,7 @@ export function studioFeedbackPlugin(workspaceRoot: string, runPath: string): Pl
               return;
             }
             if (request.method !== "POST") { response.statusCode = 405; response.end(); return; }
-            const chunks: Buffer[] = [];
-            for await (const chunk of request) chunks.push(Buffer.from(chunk));
-            const mutation = readFeedbackMutation(JSON.parse(Buffer.concat(chunks).toString("utf8")));
+            const mutation = readFeedbackMutation(JSON.parse(await readStudioBody(request, 64 * 1024)));
             const comment = mutation.type === "delete" ? mutation.before : mutation.comment;
             if (comment.run !== run) throw new Error("The comment belongs to another Run.");
             const result = view(await store.mutate(mutation));
@@ -48,6 +43,5 @@ export function studioFeedbackPlugin(workspaceRoot: string, runPath: string): Pl
           }
         })();
       });
-    },
-  };
+    });
 }

@@ -1,6 +1,6 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Plugin } from "vite";
+import type { StudioModule } from "./src/host.js";
 import type { StudioBuildLibrary } from "./src/build-library.js";
 import type { CliIo } from "@hypit/cli";
 
@@ -20,6 +20,15 @@ Open a Run in the browser to inspect its composition, Sources and Results.
   hypit studio [--example first-film] [--workspace <directory>]
     Start the getting-started guide and a provider-free example.
     A new editable copy is saved under .hypit/studio-examples/.
+
+  hypit studio --build
+    Build the production browser assets (no server or dependency installation).
+  hypit studio --create-password <file>
+    Create a private password hash file using a hidden terminal prompt.
+  hypit studio --production --password-file <file> [--origin https://studio.example.com]
+    [--port 5179] [--run <build.svrun>] [--workspace <directory>]
+    Start the personal production server on 127.0.0.1 behind your HTTPS proxy.
+    Local use defaults to http://127.0.0.1:<port>. No default password is provided.
 
   hypit studio --check-locale <./language.json | installed-package/language.json>
     [--package-root <directory>]
@@ -42,10 +51,10 @@ function invalidArguments(message: string): never {
 }
 
 function argumentsByName(argv: readonly string[]): ReadonlyMap<string, readonly string[]> {
-  const accepted = new Set(["run", "example", "runtime", "port", "workspace", "package-root", "locale-pack", "check-locale"]);
+  const accepted = new Set(["run", "example", "runtime", "port", "workspace", "package-root", "locale-pack", "check-locale", "password-file", "origin", "create-password"]);
   const result = new Map<string, string[]>();
   for (let index = 0; index < argv.length; index += 2) {
-    if (argv[index] === "--settings") { result.set("settings", ["true"]); index -= 1; continue; }
+    if (["--settings", "--production", "--build"].includes(argv[index]!)) { result.set(argv[index]!.slice(2), ["true"]); index -= 1; continue; }
     const flag = argv[index];
     const value = argv[index + 1];
     if (flag === undefined || !flag.startsWith("--") || value === undefined || value.startsWith("--")) {
@@ -66,6 +75,20 @@ export async function runStudio(argv: readonly string[], io: Pick<CliIo, "write"
   const values = argumentsByName(argv[0] === "--" ? argv.slice(1) : argv);
   const invokedFrom = process.env.INIT_CWD ?? process.cwd();
   const runArgument = values.get("run")?.at(-1);
+  if (values.has("build")) {
+    if (values.size !== 1) invalidArguments("--build must be used alone");
+    await (await import("./build.js")).buildStudio(); return;
+  }
+  if (values.has("create-password")) {
+    if (values.size !== 1) invalidArguments("--create-password must be used alone");
+    const path = resolve(invokedFrom, values.get("create-password")!.at(-1)!);
+    await (await import("./src/personal-auth.js")).createStudioPasswordFile(path);
+    io.write(`Password hash saved to ${path}\n`); return;
+  }
+  const production = values.has("production");
+  if (!production && (values.has("origin") || values.has("password-file"))) invalidArguments("--origin and --password-file require --production");
+  const passwordFile = values.get("password-file")?.at(-1) ?? process.env.HYPIT_STUDIO_PASSWORD_FILE;
+  if (production && !passwordFile) invalidArguments("--production requires --password-file or HYPIT_STUDIO_PASSWORD_FILE");
 
   const { findRuntimeProfile, resolveProjectRoot } = await import("@hypit/project-context-node");
 
@@ -93,10 +116,14 @@ export async function runStudio(argv: readonly string[], io: Pick<CliIo, "write"
   const isExample = runArgument === undefined;
   const port = Number(values.get("port")?.at(-1) ?? "5179");
   if (!Number.isSafeInteger(port) || port <= 0 || port > 65535) invalidArguments("--port must be a positive integer");
+  const productionOrigin = values.get("origin")?.at(-1) ?? `http://127.0.0.1:${port}`;
+  if (production) {
+    (await import("./src/production.js")).studioProductionOrigin(productionOrigin);
+    await (await import("./src/personal-auth.js")).loadStudioPassword(resolve(invokedFrom, passwordFile!));
+  }
   const runPath = isExample
-    ? await (await import("./src/examples.js")).prepareStudioExample(workspaceRoot)
+    ? await (await import("./src/examples.js")).prepareStudioExample(workspaceRoot, production)
     : resolve(invokedFrom, runArgument!);
-  const { createServer } = await import("vite");
   const { resolveDistributionPackageImport } = await import("@hypit/package-loader-node");
   const { videoCliDistribution, videoStudioCompanionPackages } = await import("@hypit/video-cli");
   const { studioSettingsPlugin } = await import("./src/settings-server.js");
@@ -121,7 +148,7 @@ export async function runStudio(argv: readonly string[], io: Pick<CliIo, "write"
 
   const distributionPackageRoot = videoCliDistribution.packageRoot ?? resolve(here, "../..");
   let buildLibrary: StudioBuildLibrary | undefined;
-  const runPlugins: Plugin[] = [];
+  const runPlugins: StudioModule[] = [];
   if (runPath !== undefined) {
     const { openStudioBuildLibrary } = await import("./src/build-library.js");
     const { loadStudioCompanionRegistry } = await import("./src/companion-assembly.js");
@@ -151,6 +178,28 @@ export async function runStudio(argv: readonly string[], io: Pick<CliIo, "write"
       return resolveDistributionPackageImport(distributionPackageRoot, specifier);
     },
   };
+  const modules = [studioLocalizationPlugin(languages),
+    studioSettingsPlugin({ workspaceRoot, packageRoot, distributionPackageRoot, hasRun: true,
+      ...(isExample ? { example: { id: "first-film", directory: dirname(runPath) } } : {}),
+      ...(runtimePath === undefined ? {} : { runtimePath }) }), ...runPlugins];
+  if (production) {
+    const { createStudioProductionServer } = await import("./src/production.js");
+    const { studioAssetRoot } = await import("./build.js");
+    let host: Awaited<ReturnType<typeof createStudioProductionServer>> | undefined;
+    try {
+      host = await createStudioProductionServer({ origin: productionOrigin,
+        passwordFile: resolve(invokedFrom, passwordFile!), assetRoot: studioAssetRoot, modules });
+      await new Promise<void>((done, reject) => {
+        host!.server.once("error", reject);
+        host!.server.listen(port, "127.0.0.1", () => { host!.server.off("error", reject); done(); });
+      });
+    } catch (error) { await host?.close(); await buildLibrary?.close(); throw error; }
+    const shutdown = () => { void host!.close().then(() => process.exit(0), () => process.exit(1)); };
+    process.once("SIGINT", shutdown); process.once("SIGTERM", shutdown);
+    io.write(`  Personal production Studio  ${productionOrigin}/\n  Health check                ${productionOrigin}/healthz\n`);
+    return;
+  }
+  const { createServer } = await import("vite");
   const server = await createServer({
     configFile: false,
     root: here,
@@ -163,10 +212,7 @@ export async function runStudio(argv: readonly string[], io: Pick<CliIo, "write"
       // available for Source and material previews.
       fs: { allow: [workspaceRoot, packageRoot, distributionPackageRoot, here] },
     },
-    plugins: [studioRequestProtectionPlugin(), distributionImports, studioLocalizationPlugin(languages),
-      studioSettingsPlugin({ workspaceRoot, packageRoot, distributionPackageRoot, hasRun: runPath !== undefined,
-        ...(isExample ? { example: { id: "first-film", directory: dirname(runPath) } } : {}),
-        ...(runtimePath === undefined ? {} : { runtimePath }) }), ...runPlugins],
+    plugins: [studioRequestProtectionPlugin(), distributionImports, ...modules],
   });
   server.httpServer?.once("close", () => {
     void buildLibrary?.close().catch((error: unknown) => {

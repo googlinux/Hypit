@@ -21,7 +21,14 @@ function npm(args, cwd, capture = false) {
 }
 
 npm(["run", "build:public-types"], root);
+npm(["run", "studio:build"], root);
 const [inventory] = JSON.parse(npm(["pack", "--dry-run", "--ignore-scripts", "--json"], root, true));
+const paths = new Set(inventory.files.map(file => file.path));
+for (const path of ["packages/studio/dist/index.html", "packages/studio/examples/first-film/preview.svrun",
+  "packages/studio/examples/first-film/scene.svml", "packages/studio/examples/first-film/styles.svs",
+  "packages/studio/examples/first-film/README.zh-CN.md", "QUICKSTART.zh-CN.md", "SETTINGS.zh-CN.md", "PRODUCTION.zh-CN.md"]) {
+  if (!paths.has(path)) throw new Error(`Distribution is missing ${path}`);
+}
 let readme = await readFile(resolve(root, "README.md"), "utf8");
 const examples = readme.indexOf("## Examples\n");
 const next = readme.indexOf("## Use the Hypit skill\n", examples);

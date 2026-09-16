@@ -127,6 +127,11 @@
     "packages/studio/INSPECTOR.md",
     "packages/studio/LOCALIZATION.md",
     "packages/studio/locales/*.json",
+    "packages/studio/examples/**/*",
+    "packages/studio/dist/**/*",
+    "QUICKSTART.zh-CN.md",
+    "SETTINGS.zh-CN.md",
+    "PRODUCTION.zh-CN.md",
     "services/image-opencv/pyproject.toml",
     "services/image-opencv/package.json",
     "services/image-opencv/uv.lock",
@@ -179,7 +184,9 @@
     "test:image-opencv": "node test/run.mjs image-opencv",
     "hypit": "node bin/hypit.mjs",
     "studio": "node bin/hypit.mjs studio",
-    "prepack": "npm run build:public-types"
+    "studio:build": "node bin/hypit.mjs studio --build",
+    "studio:production": "node bin/hypit.mjs studio --production",
+    "prepack": "npm run build:public-types && npm run studio:build"
   },
   "engines": {
     "node": ">=22.15.0"
@@ -279,6 +286,7 @@
     "vitepress": "^1.6.4"
   },
   "dependencies": {
+    "@fontsource-variable/inter": "5.3.0",
     "@puppeteer/browsers": "3.2.2",
     "koffi": "3.2.1",
     "puppeteer-core": "25.10.0",

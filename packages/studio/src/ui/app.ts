@@ -8,6 +8,7 @@ try {
   await initializeI18n();
   applyPreferences();
   const response = await fetch("/__studio/settings/context", { cache: "no-store" });
+  if (response.status === 401) { window.location.replace("/login"); throw new Error(); }
   if (!response.ok) throw new Error();
   const context = await response.json() as StudioSettingsContext;
   if (!window.location.hash && context.example) window.history.replaceState(null, "", "#settings/guide");

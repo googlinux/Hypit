@@ -1,9 +1,9 @@
 import { readFile } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { Plugin } from "vite";
+import { studioModule } from "./host.js";
+import type { StudioModule } from "./host.js";
 import type { RuntimeHostCredentialControl, RuntimeHostCredentialStatus } from "@hypit/runtime-host-node";
 import { createRuntimeCredentialsFromConfig, parseLocalRuntimeProfile } from "@hypit/runtime-local/config";
-import { protectStudioRequests } from "./request-protection.js";
 import type { StudioCredential, StudioEndpoint, StudioSettingsContext } from "./settings.js";
 
 type Options = {
@@ -59,7 +59,7 @@ function origin(config: unknown): string | undefined {
   } catch { /* Invalid configuration is handled by the runtime, never echoed here. */ }
 }
 
-export function studioSettingsPlugin(options: Options): Plugin {
+export function studioSettingsPlugin(options: Options): StudioModule {
   const context: StudioSettingsContext = {
     hasRun: options.hasRun, project: options.workspaceRoot, platform: process.platform, node: process.version,
     ...(options.example === undefined ? {} : { example: options.example }),
@@ -75,8 +75,7 @@ export function studioSettingsPlugin(options: Options): Plugin {
   });
   // Keychain access and mutations are serialized, including reads following a write.
   let queue: Promise<void> = Promise.resolve();
-  return { name: "hypit-studio-settings", configureServer(server) {
-    protectStudioRequests(server);
+  return studioModule("hypit-studio-settings", (server) => {
     server.middlewares.use((req, res, next) => {
       const path = req.url?.split("?")[0];
       if (path !== "/__studio/settings" && path !== "/__studio/settings/context" && path !== "/__studio/settings/credential") {
@@ -133,5 +132,5 @@ export function studioSettingsPlugin(options: Options): Plugin {
           { error: error instanceof RequestError ? error.code : "settings-unavailable" });
       });
     });
-  } };
+  });
 }

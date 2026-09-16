@@ -1,3 +1,4 @@
+import { onStudioEvent } from "./events.js";
 import { createSettings } from "./settings.js";
 import { createEditorTour } from "./guide.js";
 import { bindDropdown } from "./dropdown.js";
@@ -1129,7 +1130,10 @@ window.addEventListener("keydown", (event) => {
   event.preventDefault();
 });
 
+let displayedRevision = -1;
 function applySnapshot(snapshot: StudioSnapshot): void {
+  if (snapshot.revision < displayedRevision) return;
+  displayedRevision = snapshot.revision;
   userText(failureView, "");
   status.className = "status";
   status.title = "";
@@ -1140,6 +1144,8 @@ function applySnapshot(snapshot: StudioSnapshot): void {
 }
 
 function applyFailure(failure: StudioFailure): void {
+  if (failure.revision < displayedRevision) return;
+  displayedRevision = failure.revision;
   status.className = "status error";
   uiText(status, "common.compile-failed");
   failureView.textContent = failure.error;
@@ -1161,7 +1167,5 @@ const initial = await response.json() as StudioSnapshot | StudioFailure;
 if (response.ok && "tracks" in initial) applySnapshot(initial);
 else applyFailure(initial as StudioFailure);
 
-type Hot = { on(event: string, listener: (value: unknown) => void): void };
-const hot = (import.meta as ImportMeta & { hot?: Hot }).hot;
-hot?.on("studio:snapshot", (value) => applySnapshot(value as StudioSnapshot));
-hot?.on("studio:error", (value) => applyFailure(value as StudioFailure));
+onStudioEvent("studio:snapshot", (value) => applySnapshot(value as StudioSnapshot));
+onStudioEvent("studio:error", (value) => applyFailure(value as StudioFailure));

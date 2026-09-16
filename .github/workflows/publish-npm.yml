@@ -91,6 +91,7 @@ jobs:
           npm install --prefix "$RUNNER_TEMP/hypit-install" "$PWD/dist/release/hypit-hypit-$VERSION.tgz" --no-audit --no-fund
           "$RUNNER_TEMP/hypit-install/node_modules/.bin/hypit" --version
           "$RUNNER_TEMP/hypit-install/node_modules/.bin/hypit" studio --help
+          node scripts/smoke-studio-production.mjs "$RUNNER_TEMP/hypit-install/node_modules/@hypit/hypit"
       - uses: actions/upload-artifact@v4
         with:
           name: npm-package

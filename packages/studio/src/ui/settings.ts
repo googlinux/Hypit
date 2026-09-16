@@ -1,3 +1,4 @@
+import { isPersonalStudio, stopStudioEvents } from "./events.js";
 import type { StudioCredential, StudioEndpoint, StudioSettings } from "../settings.js";
 import { icon } from "./icons.js";
 import { languageSelect, t, uiLabel, uiText, uiAttr, uiAttribute, type Message } from "./i18n.js";
@@ -85,6 +86,23 @@ export function createSettings(hasRun: boolean): { element: HTMLElement; activat
     });
     row("settings.layout", "settings.layout-description", reset);
     content.append(rows, label("p", "settings.preferences-note", "settings-footnote"));
+    if (isPersonalStudio()) {
+      const logout = node("button", "settings-button", "退出登录 / Sign out");
+      logout.addEventListener("click", async () => {
+        if (!window.confirm("确认已保存修改并退出登录？ / Save your changes before signing out.")) return;
+        logout.disabled = true;
+        stopStudioEvents();
+        try {
+          const response = await fetch("/__studio/auth/logout", { method: "POST", headers: studioJsonHeaders(), body: "{}" });
+          if (!response.ok && response.status !== 401) throw new Error();
+          window.location.replace("/login");
+        } catch {
+          window.alert("退出失败，请重试。 / Sign out failed. Please retry.");
+          window.location.reload();
+        }
+      });
+      content.append(logout);
+    }
   }
   function notice(message: Message): void {
     const empty = node("div", "settings-empty");

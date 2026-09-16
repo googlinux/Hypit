@@ -6,7 +6,8 @@ import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
-import type { Plugin, ViteDevServer } from "vite";
+import { studioModule, readStudioBody } from "./host.js";
+import type { StudioHost, StudioModule } from "./host.js";
 import type { BuildResultFileRange } from "@hypit/build-result";
 import type { StudioTemporalInstantProjection } from "@hypit/studio-adapter";
 
@@ -23,7 +24,6 @@ import type { StudioStoryboard } from "./storyboard.js";
 import { findSurfacePreview } from "./surface-preview.js";
 import { formatTemporalPointEdit, semanticGestureSpan } from "./temporal-edit.js";
 import { replaceSourceFiles } from "./source-transaction.js";
-import { protectStudioRequests } from "./request-protection.js";
 
 export type StudioPluginOptions = {
   readonly source: string;
@@ -79,12 +79,13 @@ function conflict(error: unknown): boolean {
 
 class StudioMutationRejected extends Error {}
 
-export function studioPlugin(options: StudioPluginOptions): Plugin {
+export function studioPlugin(options: StudioPluginOptions): StudioModule {
   let snapshot: StudioSnapshot | undefined;
   let failure: StudioFailure | undefined;
+  let initializing: Promise<void> | undefined;
   let material: ReadonlyMap<string, ServedFile> = new Map();
   let revision = 0;
-  let server: ViteDevServer | undefined;
+  let server: StudioHost | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let mutating = false;
   let publishing = 0;
@@ -465,10 +466,7 @@ export function studioPlugin(options: StudioPluginOptions): Plugin {
     }
   };
 
-  return {
-    name: "hypit-studio",
-    configureServer(value) {
-      protectStudioRequests(value);
+  return studioModule("hypit-studio", (value) => {
       server = value;
       watchSource(options.runPath);
       watchSource(currentSource);
@@ -483,9 +481,7 @@ export function studioPlugin(options: StudioPluginOptions): Plugin {
               }
               mutating = true;
               acquired = true;
-              const chunks: Buffer[] = [];
-              for await (const chunk of request) chunks.push(Buffer.from(chunk));
-              const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as {
+              const body = JSON.parse(await readStudioBody(request)) as {
                 readonly text?: unknown;
                 readonly revision?: unknown;
                 readonly path?: unknown;
@@ -528,9 +524,7 @@ export function studioPlugin(options: StudioPluginOptions): Plugin {
         if (request.method === "PUT" && url.pathname === "/__studio/artifact-name") {
           void (async () => {
             try {
-              const chunks: Buffer[] = [];
-              for await (const chunk of request) chunks.push(Buffer.from(chunk));
-              const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as {
+              const body = JSON.parse(await readStudioBody(request)) as {
                 build?: unknown; output?: unknown; displayName?: unknown;
               };
               if (typeof body.build !== "string" || typeof body.output !== "string"
@@ -550,9 +544,7 @@ export function studioPlugin(options: StudioPluginOptions): Plugin {
         if (request.method === "POST" && url.pathname === "/__studio/mutation") {
           void (async () => {
             try {
-              const chunks: Buffer[] = [];
-              for await (const chunk of request) chunks.push(Buffer.from(chunk));
-              const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as Partial<StudioMutation>;
+              const body = JSON.parse(await readStudioBody(request)) as Partial<StudioMutation>;
               if ((body.type !== "timeline.adjust" && body.type !== "parameter.adjust")
                 || typeof body.revision !== "number"
                 || typeof body.entityId !== "string") {
@@ -585,8 +577,10 @@ export function studioPlugin(options: StudioPluginOptions): Plugin {
         if (url.pathname === "/__studio/session") {
           void (async () => {
             if (snapshot === undefined && failure === undefined) {
-              const attempt = ++requestedRevision;
-              await publish(attempt);
+              // The page and an SSE reconnect can request the first snapshot together.
+              initializing ??= publish(++requestedRevision);
+              await initializing;
+              initializing = undefined;
             }
             if (failure !== undefined && (snapshot === undefined || failure.revision > snapshot.revision)) {
               json(response, 500, failure);
@@ -749,11 +743,10 @@ export function studioPlugin(options: StudioPluginOptions): Plugin {
         }
         next();
       });
-    },
-    async closeBundle() {
+    }, async () => {
       for (const watcher of watched.values()) watcher.close();
       watched.clear();
+      if (timer !== undefined) clearTimeout(timer);
       await options.buildLibrary?.close();
-    },
-  };
+    });
 }

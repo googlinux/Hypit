@@ -1,3 +1,4 @@
+import { onStudioEvent } from "./events.js";
 import { studioJsonHeaders } from "./request.js";
 import { t, uiLabel, uiAttribute, uiText, uiAttr, type Message } from "./i18n.js";
 import { feedbackClock } from "../feedback.js";
@@ -221,8 +222,7 @@ export function createComments(store: Store, stage: Stage) {
   store.subscribe(() => {
     if (input.value.length === 0) { anchor = currentAnchor(); renderAnchor(); }
   });
-  type Hot = { on(event: string, listener: () => void): void };
-  (import.meta as ImportMeta & { hot?: Hot }).hot?.on("studio:feedback-changed", () => { if (active) void refresh(); });
+  onStudioEvent("studio:feedback-changed", () => { if (active) void refresh(); });
   render();
   return {
     element,
