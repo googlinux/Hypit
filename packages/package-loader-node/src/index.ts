@@ -11,6 +11,7 @@ export {
 export {
   installDistributionPackageResolution,
   installExternalPackageResolution,
+  distributionSubprocessBootstrap,
   resolveDistributionPackageImport,
 } from "./distribution-resolution.js";
 export {

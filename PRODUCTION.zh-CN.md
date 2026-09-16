@@ -129,6 +129,12 @@ WantedBy=multi-user.target
 
 运行账户需能写入工作区与运行环境的数据目录。内置预览可直接运行；实际生成/MP4 导出依然需要选择合适的 Run、配置 Provider、FFmpeg/Chromium 等运行时依赖，按已有运行环境配置限制 worker 并发和内存。
 
+### 不配置 API Key，先验证本地导出
+
+“请运行 `hypit runtime init`”表示网页服务已经启动，但没有选定生成运行配置。先使用[零 Key 示例](examples/zero-key-demo/README.zh-CN.md)配置本地 FFmpeg 与 HyperFrames，实际导出一段 9 秒 MP4。该示例提供只含本地 Provider 的配置，可用于 Linux；默认 `runtime init` starter 还包含远程服务和系统凭据存储，不能直接当作 Linux 零 Key 配置使用。
+
+运行环境与 Studio 必须使用同一个服务账户、HOME 和工作区；否则机器依赖、运行选择和作品库可能位于不同目录。Studio 启动时明确传入 `--runtime` 和示例的 `--run preview.svrun`，修改运行配置后重启。正式导出目标是 `render.svrun` 中的 `final.video`。
+
 ## 6. 备份、更新与上线检查
 
 - 备份自己的项目、`.hypit/` 下的练习与运行环境选择、`FEEDBACK.json`、运行环境实际的数据目录、数据库和作品。数据库宜停止写入后备份，或使用 SQLite 的一致性备份方式。密钥与密码哈希另行安全备份。

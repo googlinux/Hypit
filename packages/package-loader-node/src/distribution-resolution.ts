@@ -13,6 +13,16 @@ import {
 let installed: readonly string[] = [];
 let externalInstalled: readonly string[] = [];
 
+/** Child processes need the same explicit roots; Node resolution hooks are process-local. */
+export function distributionSubprocessBootstrap(entry: URL): string {
+  return [
+    `const loader = await import(${JSON.stringify(import.meta.url)});`,
+    `loader.installDistributionPackageResolution(${JSON.stringify(installed)});`,
+    `loader.installExternalPackageResolution(${JSON.stringify(externalInstalled)});`,
+    `await import(${JSON.stringify(entry.href)});`,
+  ].join("\n");
+}
+
 function packageAddress(specifier: string): { readonly name: string; readonly subpath: string } | undefined {
   const parts = specifier.split("/");
   if (specifier.startsWith("@")) {

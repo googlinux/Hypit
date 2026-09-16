@@ -169,7 +169,12 @@
     "examples/provider-package/packages/*/package.json",
     "examples/provider-package/packages/*/tsconfig.json",
     "examples/provider-package/packages/*/src/**/*",
-    "examples/provider-package/hypit.runtime.json"
+    "examples/provider-package/hypit.runtime.json",
+    "examples/zero-key-demo/*.svml",
+    "examples/zero-key-demo/*.svrun",
+    "examples/zero-key-demo/*.svs",
+    "examples/zero-key-demo/hypit.runtime.json",
+    "examples/zero-key-demo/README.zh-CN.md"
   ],
   "scripts": {
     "pack:distribution": "node scripts/pack-distribution.mjs",

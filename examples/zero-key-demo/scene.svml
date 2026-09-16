@@ -1,0 +1,39 @@
+<?svml using="@hypit/markup@1"?>
+<svml>
+  <import as="time" from="@hypit/timeline-author@1"/>
+  <import as="spatial" from="@hypit/spatial@1"/>
+  <import as="fonts" from="@hypit/fonts-open@1"/>
+  <import as="typo" from="@hypit/typography-track@1"/>
+  <import as="screen" from="@hypit/screen-overlay@1"/>
+  <import as="film" from="@hypit/film@1"/>
+  <import as="render" from="@hypit/render-hyperframes@1"/>
+  <import as="style" source="./styles.svs"/>
+
+  <!-- One local, nine-second project. No remote models or generated assets. -->
+  <time:Clock id="clock" frame-rate="30"/>
+  <time:Timeline id="story" clock={clock} end="9s"/>
+  <spatial:Canvas id="canvas" width="1280" height="720"/>
+  <spatial:Frame id="title-frame" within={canvas} left="8%" top="28%" right="92%" bottom="65%"/>
+  <spatial:Frame id="caption-frame" within={canvas} left="8%" top="68%" right="92%" bottom="88%"/>
+  <fonts:Face id="title-font" family="inter" weight="700" style="normal"/>
+  <fonts:Face id="caption-font" family="inter" weight="400" style="normal"/>
+  <typo:Style id="title-style" recipe={style.text.title} font={title-font}><typo:Fill color="#ffffff"/></typo:Style>
+  <typo:Style id="caption-style" recipe={style.text.caption} font={caption-font}><typo:Fill color="#e2e8f0"/></typo:Style>
+
+  <screen:Track id="backgrounds" timeline={story.timeline} canvas={canvas}>
+    <screen:ColorWash id="rose" at="0s" for="3s" z="0" color="#882d49" opacity="1"/>
+    <screen:ColorWash id="ocean" at="3s" for="3s" z="0" color="#164e63" opacity="1"/>
+    <screen:ColorWash id="indigo" at="6s" for="3s" z="0" color="#433878" opacity="1"/>
+  </screen:Track>
+  <typo:Track id="titles" timeline={story.timeline}>
+    <typo:Area id="hello" placement={title-frame} style={title-style} at="0s" for="3s">ZERO API KEYS.</typo:Area>
+    <typo:Area id="make" placement={title-frame} style={title-style} at="3s" for="3s">100% LOCAL.</typo:Area>
+    <typo:Area id="begin" placement={title-frame} style={title-style} at="6s" for="3s">READY TO CREATE.</typo:Area>
+    <typo:Area id="subtitle" placement={caption-frame} style={caption-style} during="program">Hypit Studio / Local rendering / No paid services</typo:Area>
+  </typo:Track>
+  <film:Film id="main" canvas={canvas} timeline={story.timeline} appearance={style.film.main}>
+    <film:Track source={backgrounds.track}/>
+    <film:Track source={titles.track}/>
+  </film:Film>
+  <render:Video id="final" composition={main.composition} timeline={story.timeline}/>
+</svml>

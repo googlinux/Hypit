@@ -1,7 +1,7 @@
 import type { ExecutionDiagnostic } from "@hypit/runtime";
+import { distributionSubprocessBootstrap } from "@hypit/package-loader-node";
 import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
-import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
 import type { CaptureInput } from "./capture.js";
 import type { HyperframesRenderProgress } from "./render.js";
@@ -62,7 +62,10 @@ export async function runCaptureProcess(
 ): Promise<void> {
   signal.throwIfAborted();
   await new Promise<void>((resolve, reject) => {
-    const child = spawn(process.execPath, ["--import", import.meta.resolve("tsx"), fileURLToPath(entry)], {
+    const child = spawn(process.execPath, [
+      "--import", import.meta.resolve("tsx"), "--input-type=module", "--eval",
+      distributionSubprocessBootstrap(entry),
+    ], {
       detached: process.platform !== "win32", windowsHide: true,
       stdio: ["ignore", "pipe", "pipe", "ipc"],
     });
